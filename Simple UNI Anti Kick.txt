@@ -1,0 +1,40 @@
+local player = game.Players.LocalPlayer
+local userInputService = game:GetService("UserInputService")
+local character = player.Character or player.CharacterAdded:Wait()
+local humanoid = character:WaitForChild("Humanoid")
+local humanoidRootPart = character:WaitForChild("HumanoidRootPart")
+
+-- Store the original position
+local originalPosition = humanoidRootPart.Position
+
+-- Timer settings
+local INACTIVITY_THRESHOLD = 600
+local CHECK_INTERVAL = 1
+local lastActivityTime = tick()
+
+-- Function to perform the anti-AFK actions
+local function performAntiAFKActions()
+    humanoid:Move(Vector3.new(0, 0, 1), true)
+    wait(1)
+    humanoid:Move(Vector3.new(0, 0, -1), true)
+    wait(1)
+    humanoid:ChangeState(Enum.HumanoidStateType.Jumping)
+end
+
+-- Function to update the last activity time
+local function updateActivity()
+    lastActivityTime = tick()
+end
+
+-- Connect user input events to reset activity timer
+userInputService.InputBegan:Connect(updateActivity)
+userInputService.InputEnded:Connect(updateActivity)
+
+-- Main loop to check for inactivity
+while true do
+    wait(CHECK_INTERVAL)
+    if tick() - lastActivityTime >= INACTIVITY_THRESHOLD then
+        performAntiAFKActions()
+        lastActivityTime = tick()
+    end
+end
