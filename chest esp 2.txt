@@ -1,0 +1,75 @@
+-- Configuration
+local SEARCH_SIZE = Vector3.new(3.5, 0.5, 2.5)
+local MAX_DISTANCE = 50 -- Maximum distance to show labels
+local REFRESH_RATE = 15 -- How often to update (in seconds)
+local LABEL_TEXT = "CHEST" -- Text to display on the label
+local BATCH_SIZE = 50 -- Number of parts to process per frame
+
+-- Function to create or update a label
+local function createLabel(part)
+    if not part:FindFirstChild("LocationLabel") then
+        local billboard = Instance.new("BillboardGui")
+        billboard.Name = "LocationLabel"
+        billboard.Size = UDim2.new(0, 200, 0, 50)
+        billboard.StudsOffset = Vector3.new(0, 2, 0)
+        billboard.AlwaysOnTop = true
+        billboard.MaxDistance = MAX_DISTANCE
+        
+        local textLabel = Instance.new("TextLabel")
+        textLabel.Size = UDim2.new(1, 0, 1, 0)
+        textLabel.BackgroundTransparency = 1
+        textLabel.TextColor3 = Color3.new(1, 1, 1)
+        textLabel.Font = Enum.Font.SourceSansBold
+        textLabel.TextSize = 14
+        textLabel.Text = LABEL_TEXT
+        textLabel.Parent = billboard
+        
+        billboard.Parent = part
+    end
+end
+
+-- Function to remove labels
+local function removeLabel(part)
+    local label = part:FindFirstChild("LocationLabel")
+    if label then
+        label:Destroy()
+    end
+end
+
+-- Main update function
+local function updateLabels()
+    local camera = workspace.CurrentCamera
+    local playerPosition = camera.CFrame.Position
+    local partCount = 0
+    
+    for _, model in ipairs(workspace:GetDescendants()) do
+        if model:IsA("BasePart") and model.Size == SEARCH_SIZE then
+            -- Calculate distance to player
+            local distance = (model.Position - playerPosition).Magnitude
+            
+            -- Show or hide label based on distance
+            if distance <= MAX_DISTANCE then
+                createLabel(model)
+            else
+                removeLabel(model)
+            end
+            
+            -- Process only a limited number of parts per frame
+            partCount = partCount + 1
+            if partCount >= BATCH_SIZE then
+                partCount = 0
+                wait() -- Yield to prevent FPS drop
+            end
+        end
+    end
+end
+
+-- Run the update loop on a separate thread with RunService.Heartbeat
+local RunService = game:GetService("RunService")
+
+spawn(function()
+    while true do
+        updateLabels()
+        wait(REFRESH_RATE) -- Control how often the update runs
+    end
+end)
