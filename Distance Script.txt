@@ -1,0 +1,152 @@
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+
+local MAX_DISTANCE = 1000 -- Maximum distance to show labels (in studs)
+local RED_DISTANCE = 500 -- Distance at or below which the text turns red
+local localPlayer = Players.LocalPlayer
+
+-- Create the enemies nearby GUI
+local enemiesGui = Instance.new("ScreenGui")
+enemiesGui.Name = "EnemiesNearbyGui"
+enemiesGui.Parent = localPlayer.PlayerGui
+
+local enemiesLabel = Instance.new("TextLabel")
+enemiesLabel.Name = "EnemiesLabel"
+enemiesLabel.Size = UDim2.new(0, 200, 0, 50)
+enemiesLabel.Position = UDim2.new(0.5, -100, 0, -50)
+enemiesLabel.BackgroundTransparency = 1
+enemiesLabel.TextColor3 = Color3.new(1, 0, 0)
+enemiesLabel.TextStrokeColor3 = Color3.new(0, 0, 0)
+enemiesLabel.TextStrokeTransparency = 0
+enemiesLabel.Font = Enum.Font.SourceSansBold
+enemiesLabel.TextSize = 24
+enemiesLabel.Parent = enemiesGui
+
+-- Function to update nearby enemies count
+local function updateNearbyEnemies()
+    if not localPlayer.Character or not localPlayer.Character:FindFirstChild("HumanoidRootPart") then return end
+    
+    local nearbyCount = 0
+    for _, player in ipairs(Players:GetPlayers()) do
+        if player ~= localPlayer and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+            local distance = (player.Character.HumanoidRootPart.Position - localPlayer.Character.HumanoidRootPart.Position).Magnitude
+            if distance <= 300 then
+                nearbyCount = nearbyCount + 1
+            end
+        end
+    end
+    
+    if nearbyCount > 0 then
+        enemiesLabel.Text = "Enemies Nearby: " .. nearbyCount
+        enemiesLabel.Visible = true
+    else
+        enemiesLabel.Visible = false
+    end
+end
+
+-- Add the nearby enemies update to the RunService
+RunService.Heartbeat:Connect(updateNearbyEnemies)
+
+-- Function to create distance label for a player
+local function createDistanceLabel(player)
+    local billboardGui = Instance.new("BillboardGui")
+    billboardGui.Name = "DistanceGui"
+    billboardGui.AlwaysOnTop = true
+    billboardGui.Size = UDim2.new(0, 100, 0, 40)
+    billboardGui.StudsOffset = Vector3.new(0, -3.2, 0) -- Adjusted to be under feet
+    billboardGui.ExtentsOffset = Vector3.new(0, 0, 0)
+    billboardGui.MaxDistance = MAX_DISTANCE
+    
+    local distanceLabel = Instance.new("TextLabel")
+    distanceLabel.Name = "DistanceLabel"
+    distanceLabel.Size = UDim2.new(1, 0, 0.8, 0)
+    distanceLabel.Position = UDim2.new(0, 0, 0, 0)
+    distanceLabel.BackgroundTransparency = 1
+    distanceLabel.TextColor3 = Color3.new(1, 1, 1)
+    distanceLabel.TextStrokeColor3 = Color3.new(0, 0, 0)
+    distanceLabel.TextStrokeTransparency = 0
+    distanceLabel.Font = Enum.Font.SourceSansBold
+    distanceLabel.TextSize = 10
+    distanceLabel.Parent = billboardGui
+    
+    -- Find the lowest part of the character (usually the right or left foot)
+    local function findLowestPart()
+        local lowest = player.Character.HumanoidRootPart
+        local lowestY = lowest.Position.Y
+        
+        for _, part in pairs(player.Character:GetChildren()) do
+            if part:IsA("BasePart") then
+                if part.Position.Y < lowestY then
+                    lowest = part
+                    lowestY = part.Position.Y
+                end
+            end
+        end
+        return lowest
+    end
+    
+    billboardGui.Adornee = findLowestPart()
+    billboardGui.Parent = player.Character
+    return billboardGui
+end
+
+-- Function to update distance for a player
+local function updateDistance(player, distanceGui)
+    if not player.Character or not localPlayer.Character then return end
+    if not player.Character:FindFirstChild("HumanoidRootPart") or not localPlayer.Character:FindFirstChild("HumanoidRootPart") then return end
+    
+    local distance = (player.Character.HumanoidRootPart.Position - localPlayer.Character.HumanoidRootPart.Position).Magnitude
+    local distanceLabel = distanceGui.DistanceLabel
+    
+    if distance <= MAX_DISTANCE then
+        distanceGui.Enabled = true
+        distanceLabel.Text = string.format("%.1f Studs", distance)
+        
+        -- Change text color to red if distance is at or below RED_DISTANCE
+        if distance <= RED_DISTANCE then
+            distanceLabel.TextColor3 = Color3.new(1, 0, 0) -- Red
+        else
+            distanceLabel.TextColor3 = Color3.new(1, 1, 1) -- White
+        end
+    else
+        distanceGui.Enabled = false
+    end
+end
+
+-- Function to handle a player
+local function handlePlayer(player)
+    if player == localPlayer then return end
+    
+    local function setupDistanceGui()
+        if player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+            local distanceGui = createDistanceLabel(player)
+            
+            local connection = RunService.Heartbeat:Connect(function()
+                if player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+                    updateDistance(player, distanceGui)
+                else
+                    connection:Disconnect()
+                end
+            end)
+        end
+    end
+    
+    -- Handle when character is added
+    player.CharacterAdded:Connect(function(character)
+        wait(0.1) -- Wait for character to fully load
+        setupDistanceGui()
+    end)
+    
+    -- Initial setup if character already exists
+    if player.Character then
+        setupDistanceGui()
+    end
+end
+
+-- Handle existing players
+for _, player in ipairs(Players:GetPlayers()) do
+    handlePlayer(player)
+end
+
+-- Handle new players
+Players.PlayerAdded:Connect(handlePlayer)

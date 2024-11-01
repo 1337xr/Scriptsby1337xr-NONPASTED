@@ -1,0 +1,43 @@
+-- Create a ScreenGui to hold the crosshair
+local screenGui = Instance.new("ScreenGui")
+screenGui.Name = "CrosshairGui"
+screenGui.ResetOnSpawn = false
+screenGui.Parent = game.Players.LocalPlayer:WaitForChild("PlayerGui")
+
+-- Create the crosshair frame
+local crosshairFrame = Instance.new("Frame")
+crosshairFrame.Name = "Crosshair"
+crosshairFrame.Size = UDim2.new(0, 4, 0, 4)
+crosshairFrame.BackgroundColor3 = Color3.new(1, 0, 0) -- Red color
+crosshairFrame.BorderSizePixel = 0
+crosshairFrame.Parent = screenGui
+
+-- Create the vertical line
+local verticalLine = Instance.new("Frame")
+verticalLine.Name = "VerticalLine"
+verticalLine.Size = UDim2.new(0, 2, 0, 20)
+verticalLine.Position = UDim2.new(0.5, -1, 0.5, -10)
+verticalLine.BackgroundColor3 = Color3.new(1, 0, 0) -- Red color
+verticalLine.BorderSizePixel = 0
+verticalLine.Parent = crosshairFrame
+
+-- Create the horizontal line
+local horizontalLine = Instance.new("Frame")
+horizontalLine.Name = "HorizontalLine"
+horizontalLine.Size = UDim2.new(0, 20, 0, 2)
+horizontalLine.Position = UDim2.new(0.5, -10, 0.5, -1)
+horizontalLine.BackgroundColor3 = Color3.new(1, 0, 0) -- Red color
+horizontalLine.BorderSizePixel = 0
+horizontalLine.Parent = crosshairFrame
+
+-- Function to update crosshair position
+local function updateCrosshairPosition()
+    local viewportSize = workspace.CurrentCamera.ViewportSize
+    crosshairFrame.Position = UDim2.new(0.5, -2, 0.47, -2)
+end
+
+-- Connect the function to the camera's viewport size change event
+workspace.CurrentCamera:GetPropertyChangedSignal("ViewportSize"):Connect(updateCrosshairPosition)
+
+-- Initial position update
+updateCrosshairPosition()
