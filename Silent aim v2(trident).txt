@@ -1,0 +1,89 @@
+local silent_aim = {
+    fov = true,
+    fovsize = 250,
+    part = "Head",
+    targetai = true
+}
+local workspace = cloneref(game:GetService("Workspace"))
+local Players = cloneref(game:GetService("Players"))
+local RunService = cloneref(game:GetService("RunService"))
+local Lighting = cloneref(game:GetService("Lighting"))
+local UserInputService = cloneref(game:GetService("UserInputService"))
+local GuiInset = cloneref(game:GetService("GuiService")):GetGuiInset()
+local LocalPlayer = Players.LocalPlayer
+local Mouse = LocalPlayer:GetMouse()
+local Camera = workspace.CurrentCamera
+
+local _Vector2new = Vector2.new
+local _FindFirstChild = game.FindFirstChild
+local _FindFirstChildOfClass = game.FindFirstChildOfClass
+local _WorldToViewportPoint = Camera.WorldToViewportPoint
+local unpack = unpack
+local type = type
+local getinfo = debug.getinfo
+
+local function get_closest_target(usefov, fov_size, aimpart, npc)
+    local part, isnpc = nil, false
+    local maximum_distance = usefov and fov_size or math.huge
+    local mousepos = _Vector2new(Mouse.X, Mouse.Y)
+    (function()
+        if npc then
+            for _, __no in pairs(workspace.AiZones:GetChildren()) do for _, npcs in pairs(__no:GetChildren()) do
+                local hitpart = _FindFirstChild(npcs, aimpart)
+                local humanoid = _FindFirstChildOfClass(npcs, "Humanoid")
+                if hitpart and humanoid then
+                    local position, onscreen = _WorldToViewportPoint(Camera, hitpart.Position)
+                    local distance = (_Vector2new(position.X, position.Y - GuiInset.Y) - mousepos).Magnitude
+                    if (usefov and onscreen or not usefov) and distance < maximum_distance then
+                        part = hitpart
+                        maximum_distance = distance
+                        isnpc = true
+                    end
+                end
+            end end
+        end
+        for _, plr in Players:GetPlayers() do
+            local character = plr.Character
+            if plr ~= LocalPlayer and character then
+                local hitpart = _FindFirstChild(character, aimpart)
+                local humanoid = _FindFirstChildOfClass(character, "Humanoid")
+                if hitpart and humanoid then
+                    local position, onscreen = _WorldToViewportPoint(Camera, hitpart.Position)
+                    local distance = (_Vector2new(position.X, position.Y - GuiInset.Y) - mousepos).Magnitude
+                    if (usefov and onscreen or not usefov) and distance <= maximum_distance then
+                        part = hitpart
+                        maximum_distance = distance
+                        isnpc = false
+                    end
+                end
+            end
+        end
+    end)();
+    return part, isnpc
+end
+RunService.Heartbeat:Connect(function()
+    silent_aim.target_part, silent_aim.is_npc = get_closest_target(silent_aim.fov, silent_aim.fov_size, silent_aim.part, silent_aim.target_ai);
+end)
+local __namecall; __namecall = hookmetamethod(game, "__namecall", newcclosure(function(self,...)
+    if checkcaller() then return __namecall(self, ...) end
+    local method = getnamecallmethod()
+    if method == "FireServer" then
+        if self.Name == "ProjectileInflict" then
+            local args = {...}
+            if type(args[3]) == "number" and args[3] >= 0 and args[3] <= 10 then
+                return coroutine.yield()
+            end
+            args[4] = 0/0
+            return __namecall(self, unpack(args))
+        end
+    end
+    if
+        method == "Raycast" and getinfo(3).short_src == "ReplicatedStorage.Modules.FPS.Bullet" and
+        silent_aim.enabled  and silent_aim.target_part
+    then
+        local args = {...}
+        args[2] = (silent_aim.target_part.Position - args[1]).Unit * 10000
+        return __namecall(self, unpack(args))
+    end
+    return __namecall(self, ...)
+end))

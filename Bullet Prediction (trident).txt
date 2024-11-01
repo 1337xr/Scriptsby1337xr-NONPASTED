@@ -1,0 +1,11 @@
+local function predict_drop(part, entity, projectile_speed, projectile_drop)
+    local distance = (trident.middlepart.Position - part.Position).Magnitude
+    local time_to_hit = (distance / projectile_speed)
+    local final_projectile_speed = projectile_speed * (time_to_hit) * projectile_speed ^ 2
+    time_to_hit = time_to_hit + (distance / final_projectile_speed)
+    local drop_timing = projectile_drop ^ (time_to_hit * projectile_drop) - 1
+    if not (drop_timing ~= drop_timing) then
+        return drop_timing
+    end
+    return 0
+end
