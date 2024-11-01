@@ -1,0 +1,30 @@
+-- Services
+local Lighting = game:GetService("Lighting")
+
+-- Settings
+local Brightness = 2
+local ClockTime = 14
+local FogEnd = 100000
+
+-- Function to apply brightness
+local function ApplyBrightness()
+    -- Remove all lighting effects
+    for _, v in pairs(Lighting:GetChildren()) do
+        if v:IsA("BlurEffect") or v:IsA("ColorCorrectionEffect") or v:IsA("BloomEffect") or v:IsA("SunRaysEffect") then
+            v:Destroy()
+        end
+    end
+
+    -- Set lighting properties
+    Lighting.Brightness = Brightness
+    Lighting.ClockTime = ClockTime
+    Lighting.FogEnd = FogEnd
+    Lighting.GlobalShadows = false
+    Lighting.OutdoorAmbient = Color3.fromRGB(128, 128, 128)
+end
+
+-- Apply brightness initially
+ApplyBrightness()
+
+-- Keep applying brightness in case game tries to change it
+game:GetService("RunService").Heartbeat:Connect(ApplyBrightness)
