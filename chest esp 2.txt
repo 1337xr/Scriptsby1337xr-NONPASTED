@@ -9,7 +9,7 @@ local SCRIPT_DEACTIVATION_DISTANCE = 200
 local SCRIPT_DURATION = 30 -- Duration in seconds before script deactivates
 local LABEL_TEXTS = {   
     [Vector3.new(3.64990234375, 2.325000047683716, 2.6500015258789062)] = "CHEST",
-    [Vector3.new(4.5, 6.75, 2.25)] = "STORAGE BOX",
+    [Vector3.new(4.5, 6.75, 2.25)] = "CABINET",
     [Vector3.new(6.39996337890625, 2.825000047683716, 3.1500091552734375)] = "BIG CHEST",
 }
 
