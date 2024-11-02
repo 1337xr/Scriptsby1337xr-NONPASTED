@@ -6,6 +6,7 @@ local SEARCH_SIZES = {
 }
 local MAX_DISTANCE = 200
 local SCRIPT_DEACTIVATION_DISTANCE = 200
+local SCRIPT_DURATION = 30 -- Duration in seconds before script deactivates
 local LABEL_TEXTS = {   
     [Vector3.new(3.64990234375, 2.325000047683716, 2.6500015258789062)] = "CHEST",
     [Vector3.new(4.5, 6.75, 2.25)] = "STORAGE BOX",
@@ -16,6 +17,7 @@ local LABEL_TEXTS = {
 local isScriptActive = true
 local startPosition = nil
 local trackedObjects = {} -- Store references to objects we're tracking
+local startTime = tick() -- Store the start time
 
 -- Function to create or update highlight
 local function updateHighlight(part, shouldShow)
@@ -75,6 +77,15 @@ local function approximatelyEqual(v1, v2, epsilon)
         and math.abs(v1.Z - v2.Z) < epsilon
 end
 
+-- Function to clean up all effects
+local function cleanupEffects()
+    for _, obj in ipairs(trackedObjects) do
+        updateHighlight(obj.part, false)
+        updateLabel(obj.part, obj.labelText, false)
+    end
+    trackedObjects = {}
+end
+
 -- Find all matching objects
 local function findMatchingObjects()
     for _, model in ipairs(workspace:GetDescendants()) do
@@ -116,6 +127,16 @@ local function startUpdateLoop()
             return
         end
         
+        -- Check if time limit has been reached
+        if tick() - startTime >= SCRIPT_DURATION then
+            print("Time limit reached. Deactivating script.")
+            isScriptActive = false
+            cleanupEffects()
+            connection:Disconnect()
+            script:Destroy()
+            return
+        end
+        
         local camera = workspace.CurrentCamera
         local playerPosition = camera.CFrame.Position
         local distanceFromStart = (playerPosition - startPosition).Magnitude
@@ -123,13 +144,7 @@ local function startUpdateLoop()
         if distanceFromStart > SCRIPT_DEACTIVATION_DISTANCE then
             print("Player moved", math.floor(distanceFromStart), "studs from start. Deactivating script.")
             isScriptActive = false
-            
-            -- Clean up all effects
-            for _, obj in ipairs(trackedObjects) do
-                updateHighlight(obj.part, false)
-                updateLabel(obj.part, obj.labelText, false)
-            end
-            
+            cleanupEffects()
             connection:Disconnect()
             script:Destroy()
         else
