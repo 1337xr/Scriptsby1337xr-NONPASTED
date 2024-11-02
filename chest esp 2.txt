@@ -1,78 +1,147 @@
 -- Configuration
-local SEARCH_SIZE = Vector3.new(3.5, 0.5, 2.5)
-local MAX_DISTANCE = 50 -- Maximum distance to show labels
-local REFRESH_RATE = 15 -- How often to update (in seconds)
-local LABEL_TEXT = "CHEST" -- Text to display on the label
-local BATCH_SIZE = 50 -- Number of parts to process per frame
+local SEARCH_SIZES = {
+    Vector3.new(3.64990234375, 2.325000047683716, 2.6500015258789062),
+    Vector3.new(4.5, 6.75, 2.25),
+    Vector3.new(6.39996337890625, 2.825000047683716, 3.1500091552734375),
+}
+local MAX_DISTANCE = 200
+local SCRIPT_DEACTIVATION_DISTANCE = 200
+local LABEL_TEXTS = {   
+    [Vector3.new(3.64990234375, 2.325000047683716, 2.6500015258789062)] = "CHEST",
+    [Vector3.new(4.5, 6.75, 2.25)] = "STORAGE BOX",
+    [Vector3.new(6.39996337890625, 2.825000047683716, 3.1500091552734375)] = "BIG CHEST",
+}
 
--- Function to create or update a label
-local function createLabel(part)
-    if not part:FindFirstChild("LocationLabel") then
-        local billboard = Instance.new("BillboardGui")
-        billboard.Name = "LocationLabel"
-        billboard.Size = UDim2.new(0, 200, 0, 50)
-        billboard.StudsOffset = Vector3.new(0, 2, 0)
-        billboard.AlwaysOnTop = true
-        billboard.MaxDistance = MAX_DISTANCE
-        
-        local textLabel = Instance.new("TextLabel")
-        textLabel.Size = UDim2.new(1, 0, 1, 0)
-        textLabel.BackgroundTransparency = 1
-        textLabel.TextColor3 = Color3.new(1, 1, 1)
-        textLabel.Font = Enum.Font.SourceSansBold
-        textLabel.TextSize = 14
-        textLabel.Text = LABEL_TEXT
-        textLabel.Parent = billboard
-        
-        billboard.Parent = part
+-- Track script state
+local isScriptActive = true
+local startPosition = nil
+local trackedObjects = {} -- Store references to objects we're tracking
+
+-- Function to create or update highlight
+local function updateHighlight(part, shouldShow)
+    local highlight = part:FindFirstChild("ObjectHighlight")
+    
+    if shouldShow then
+        if not highlight then
+            highlight = Instance.new("Highlight")
+            highlight.Name = "ObjectHighlight"
+            highlight.OutlineColor = Color3.new(1, 0, 0)
+            highlight.OutlineTransparency = 0
+            highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+            highlight.Parent = part
+        end
+    else
+        if highlight then
+            highlight:Destroy()
+        end
     end
 end
 
--- Function to remove labels
-local function removeLabel(part)
-    local label = part:FindFirstChild("LocationLabel")
-    if label then
-        label:Destroy()
+-- Function to create or update label
+local function updateLabel(part, labelText, shouldShow)
+    local billboard = part:FindFirstChild("LocationLabel")
+    
+    if shouldShow then
+        if not billboard then
+            billboard = Instance.new("BillboardGui")
+            billboard.Name = "LocationLabel"
+            billboard.Size = UDim2.new(0, 200, 0, 50)
+            billboard.StudsOffset = Vector3.new(0, 2, 0)
+            billboard.AlwaysOnTop = true
+            billboard.MaxDistance = MAX_DISTANCE
+
+            local textLabel = Instance.new("TextLabel")
+            textLabel.Size = UDim2.new(1, 0, 1, 0)
+            textLabel.BackgroundTransparency = 1
+            textLabel.TextColor3 = Color3.new(1, 1, 1)
+            textLabel.Font = Enum.Font.SourceSansBold
+            textLabel.TextSize = 14
+            textLabel.Text = labelText
+            textLabel.Parent = billboard
+            billboard.Parent = part
+        end
+    else
+        if billboard then
+            billboard:Destroy()
+        end
     end
 end
 
--- Main update function
-local function updateLabels()
+-- Function to check if two Vector3 are approximately equal
+local function approximatelyEqual(v1, v2, epsilon)
+    epsilon = epsilon or 0.001
+    return math.abs(v1.X - v2.X) < epsilon
+        and math.abs(v1.Y - v2.Y) < epsilon
+        and math.abs(v1.Z - v2.Z) < epsilon
+end
+
+-- Find all matching objects
+local function findMatchingObjects()
+    for _, model in ipairs(workspace:GetDescendants()) do
+        if model:IsA("BasePart") then
+            for _, searchSize in ipairs(SEARCH_SIZES) do
+                if approximatelyEqual(model.Size, searchSize) then
+                    table.insert(trackedObjects, {
+                        part = model,
+                        labelText = LABEL_TEXTS[searchSize]
+                    })
+                    break
+                end
+            end
+        end
+    end
+end
+
+-- Update visibility based on distance
+local function updateVisibility()
     local camera = workspace.CurrentCamera
     local playerPosition = camera.CFrame.Position
-    local partCount = 0
     
-    for _, model in ipairs(workspace:GetDescendants()) do
-        if model:IsA("BasePart") and model.Size == SEARCH_SIZE then
-            -- Calculate distance to player
-            local distance = (model.Position - playerPosition).Magnitude
-            
-            -- Show or hide label based on distance
-            if distance <= MAX_DISTANCE then
-                createLabel(model)
-            else
-                removeLabel(model)
-            end
-            
-            -- Process only a limited number of parts per frame
-            partCount = partCount + 1
-            if partCount >= BATCH_SIZE then
-                partCount = 0
-                wait() -- Yield to prevent FPS drop
-            end
-        end
+    for _, obj in ipairs(trackedObjects) do
+        local distance = (obj.part.Position - playerPosition).Magnitude
+        local shouldShow = distance <= MAX_DISTANCE
+        
+        updateHighlight(obj.part, shouldShow)
+        updateLabel(obj.part, obj.labelText, shouldShow)
     end
 end
 
--- Run the update loop on a separate thread with RunService.Heartbeat
-local RunService = game:GetService("RunService")
-getgenv().ChestESPEnabled = false
-
-spawn(function()
-    while true do
-        if getgenv().ChestESPEnabled then
-            updateLabels()
+-- Main loop
+local function startUpdateLoop()
+    local RunService = game:GetService("RunService")
+    
+    local connection = RunService.Heartbeat:Connect(function()
+        if not isScriptActive then
+            connection:Disconnect()
+            return
         end
-        wait(REFRESH_RATE)
-    end
-end)
+        
+        local camera = workspace.CurrentCamera
+        local playerPosition = camera.CFrame.Position
+        local distanceFromStart = (playerPosition - startPosition).Magnitude
+        
+        if distanceFromStart > SCRIPT_DEACTIVATION_DISTANCE then
+            print("Player moved", math.floor(distanceFromStart), "studs from start. Deactivating script.")
+            isScriptActive = false
+            
+            -- Clean up all effects
+            for _, obj in ipairs(trackedObjects) do
+                updateHighlight(obj.part, false)
+                updateLabel(obj.part, obj.labelText, false)
+            end
+            
+            connection:Disconnect()
+            script:Destroy()
+        else
+            updateVisibility()
+        end
+    end)
+end
+
+-- Initialize the script
+local camera = workspace.CurrentCamera
+startPosition = camera.CFrame.Position
+print("Script started at position:", startPosition)
+
+findMatchingObjects()
+startUpdateLoop()
